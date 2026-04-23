@@ -1,7 +1,10 @@
-# Holistic Diagram Using AI — System Design
+# Holistic Diagram Using AI - System Design
 
 ## What It Does
-A collection of real-time body analysis demos using Google MediaPipe. Each script demonstrates a different computer vision capability: face detection, face mesh, pose estimation, hand tracking, iris tracking, selfie segmentation, head posture analysis, facial expression, and the full holistic model — all live on webcam.
+A collection of real-time body analysis demos using Google MediaPipe. Each script
+demonstrates a different computer vision capability: face detection, face mesh, pose
+estimation, hand tracking, iris tracking, selfie segmentation, head posture, facial
+expression, and the full holistic model -- all live on webcam.
 
 ---
 
@@ -12,57 +15,54 @@ Webcam (live video stream)
         |
         v
 +--------------------------------------------------+
-|  OpenCV VideoCapture (videosource.py / video.py) |
-|  Frame-by-frame capture                          |
+|  OpenCV VideoCapture (video.py / videosource.py) |
+|  Frame-by-frame capture at camera FPS            |
 +--------------------------------------------------+
         |
         v
-+-------------------------------------------+
-|  MediaPipe Model (per script)             |
-|                                           |
-|  holistic.py      -> full body pipeline   |
-|  face_detection.py-> face bounding box    |
-|  face_mesh.py     -> 468 face landmarks   |
-|  hands.py         -> 21 hand landmarks    |
-|  handstrack.py    -> hand tracking + draw |
-|  pose.py          -> 33 body pose pts     |
-|  iris.py          -> iris landmarks       |
-|  head_posture.py  -> 3D head rotation     |
-|  facial_expression-> expression classify  |
-|  selfie_segmentation -> background remove |
-|  objectron.py     -> 3D object detection  |
-+-------------------------------------------+
++--------------------------------------------------+
+|  MediaPipe Model (per script)                    |
+|                                                  |
+|  holistic.py       -> face + hands + pose        |
+|  face_detection.py -> face bounding box          |
+|  face_mesh.py      -> 468 face landmarks         |
+|  hands.py          -> 21 hand landmarks          |
+|  handstrack.py     -> hand tracking + overlay    |
+|  pose.py           -> 33 body pose landmarks     |
+|  iris.py           -> iris landmarks + depth     |
+|  head_posture.py   -> pitch / yaw / roll angles  |
+|  facial_expression -> expression classification  |
+|  selfie_segmentation -> background removal       |
+|  objectron.py      -> 3D object bounding box     |
++--------------------------------------------------+
         |
-   Landmark data (x, y, z coordinates)
+  Landmark data (x, y, z coordinates)
         |
-        v
 +--------------------------------------------------+
 |  custom/ (geometry utilities)                    |
-|  custom/core.py         -> math helpers          |
-|  custom/face_geometry.py-> 3D face model         |
-|  custom/iris_lm_depth.py-> iris depth estimation |
+|  custom/core.py          -> math helpers         |
+|  custom/face_geometry.py -> 3D face model        |
+|  custom/iris_lm_depth.py -> iris depth estimate  |
 +--------------------------------------------------+
         |
-        v
   Annotated frame -> cv2.imshow() -> display
 ```
 
 ---
 
-## Individual Scripts and What They Detect
+## What Each Script Detects
 
-| Script | MediaPipe Model | Output |
-|---|---|---|
-| face_detection.py | BlazeFace | Bounding box + 6 keypoints |
-| face_mesh.py | Face Mesh | 468 3D face landmarks |
-| hands.py / handstrack.py | MediaPipe Hands | 21 landmarks per hand (wrist, knuckles, tips) |
-| pose.py | BlazePose | 33 body landmarks (shoulder, elbow, knee, etc.) |
-| iris.py | Iris model | 5 iris landmarks + depth estimation |
-| holistic.py | Holistic | Face + hands + pose simultaneously |
-| head_posture.py | Face Mesh + solvePnP | Pitch / Yaw / Roll angles |
-| facial_expression.py | Face Mesh + classifier | Emotion label (happy, neutral, etc.) |
-| selfie_segmentation.py | Selfie Segmentation | Binary mask: person vs background |
-| objectron.py | Objectron | 3D bounding box of objects |
+| Script                | Model               | Output                              |
+|-----------------------|---------------------|-------------------------------------|
+| face_detection.py     | BlazeFace           | Bounding box + 6 keypoints          |
+| face_mesh.py          | Face Mesh           | 468 3D face landmarks               |
+| hands.py              | MediaPipe Hands     | 21 landmarks per hand               |
+| pose.py               | BlazePose           | 33 body landmarks                   |
+| iris.py               | Iris model          | 5 iris landmarks + depth            |
+| holistic.py           | Holistic (combined) | Face + hands + pose simultaneously  |
+| head_posture.py       | Face Mesh + solvePnP| Pitch / Yaw / Roll in degrees       |
+| selfie_segmentation.py| Selfie Segmentation | Binary mask: person vs background   |
+| objectron.py          | Objectron           | 3D bounding box of objects          |
 
 ---
 
@@ -71,7 +71,7 @@ Webcam (live video stream)
 ```
 Webcam frame (BGR)
         |
-  Convert: BGR -> RGB
+  Convert BGR -> RGB  (MediaPipe requires RGB)
         |
   mp.solutions.holistic.Holistic.process(frame)
         |
@@ -82,26 +82,33 @@ Webcam frame (BGR)
     result.pose_landmarks       (33 points)
         |
   mp_drawing.draw_landmarks():
-    Draw connections between landmarks as skeleton overlay
+    Draws skeleton connections between landmarks
         |
-  Convert: RGB -> BGR for OpenCV display
-        |
-  cv2.imshow() -> annotated frame on screen
+  Convert RGB -> BGR -> cv2.imshow() -> display
 ```
 
 ---
 
 ## Key Design Decisions
 
-| Decision | Reason |
-|---|---|
-| MediaPipe pre-trained models | State-of-art accuracy, CPU-only, no GPU needed, single pip install |
-| One script per capability | Easy to study each model in isolation; modular and educational |
-| custom/ geometry module | Iris depth and face 3D geometry require custom math beyond MediaPipe output |
-| solvePnP for head posture | Uses 6 known 3D face points + 2D landmarks to solve camera pose |
+| Decision                       | Reason                                            |
+|--------------------------------|---------------------------------------------------|
+| MediaPipe pre-trained models   | State-of-art accuracy, CPU-only, single pip install|
+| One script per capability      | Easy to study each model in isolation; modular    |
+| custom/ geometry module        | Iris depth and 3D face geometry need custom math  |
+| solvePnP for head posture      | Lifts 2D landmarks to 3D using known face geometry|
 
 ---
 
 ## Interview Conclusion
 
-This repository is a systematic exploration of MediaPipe's full capability surface — each script is both a working demo and a reference implementation. The holistic model is the most architecturally interesting: it runs three separate neural networks (face, hands, pose) in a coordinated pipeline that shares a single body detection step to reduce latency, rather than running three independent detectors. The head posture script (head_posture.py) demonstrates an important computer vision technique: using OpenCV's solvePnP to lift 2D landmark coordinates into 3D space by solving the Perspective-n-Point problem against a known 3D face model. The iris depth estimation in custom/iris_lm_depth.py derives eye-to-camera distance from the apparent size of the iris — a clever trick since the average human iris diameter is a known physical constant (11.7mm). If I were building a product on top of this, I would combine the holistic model with a temporal smoother (Kalman filter) to reduce landmark jitter, and add action recognition on top of the pose landmarks.
+This repository systematically explores MediaPipe's full capability surface. The holistic
+model is architecturally interesting: it runs three neural networks (face, hands, pose)
+in a coordinated pipeline sharing a single body detection step, reducing latency versus
+three independent detectors. The head posture script uses OpenCV's solvePnP to lift 2D
+landmark coordinates to 3D by solving the Perspective-n-Point problem against a known
+3D face model -- a standard computer vision technique for estimating camera pose. The
+iris depth script in custom/iris_lm_depth.py derives eye-to-camera distance from the
+apparent iris size, since the average human iris diameter (11.7mm) is a known constant.
+Production extension: add a Kalman filter temporal smoother to reduce landmark jitter,
+and action recognition on top of the pose landmark sequence.
